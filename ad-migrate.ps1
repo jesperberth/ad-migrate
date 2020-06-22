@@ -27,13 +27,13 @@ function SetSourceOU{
 function ExportSourceToCSV($ou){
     $exportpath = "C:\ExportOU\"
     $exportgroupfile = "group.csv"
+   # $exportgroupmembersfile = "groupmembers.csv"
+    $exportuserfile = "users.csv"
     if($null -eq $ou){
         write-host -ForegroundColor red "You Need to set the Export OU, press any key to continue"
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
         break
     }
-
-    write-host "Export all Groups and users to CSV file from: " $ou "`n"
 
     $exportpathmsg = "Do you want to change Default Export path y/n"
 	do {
@@ -45,10 +45,15 @@ function ExportSourceToCSV($ou){
 		$response = "n"
  		}
 	} 	until ($response -eq 'n')
-    New-Item -ItemType "directory" -Path $exportpath
+    New-Item -ItemType "directory" -Path $exportpath -Force
     $exportgrouppath = $exportpath + $exportgroupfile
+    $exportuserpath = $exportpath + $exportuserfile
+    write-host -foregroundcolor green "`n#####################################################################`n"
+    write-host -foregroundcolor green "Export all Groups and users to CSV file from: " $ou "`n"
+    write-host -foregroundcolor green "#####################################################################`n"
     get-adgroup -filter * -SearchBase $ou -Properties * | Select-Object DistinguishedName, Description, Name, GroupCategory, GroupScope | Export-Csv -Path $exportgrouppath -Encoding UTF8
-
+    # Get user details
+    get-aduser -filter * -SearchBase $ou -Properties * | Select-Object DisplayName, City, CN, Company, Country, countryCode, Department, Description, Division, EmailAddress, EmployeeID, EmployeeNumber, Fax, GivenName, HomeDirectory, HomedirRequired, HomeDrive, HomePage, HomePhone, Initials, Manager, MobilePhone, Name, Office, OfficePhone, Organization, OtherName, POBox, PostalCode, ProfilePath, SamAccountName, ScriptPath, sn, State, StreetAddress, Surname, Title, UserPrincipalName | Export-Csv -Path $exportuserpath -Encoding UTF8
 }
 
 do
