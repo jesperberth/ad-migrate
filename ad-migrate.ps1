@@ -55,11 +55,12 @@ function ExportSourceToCSV($ou){
     # Get user details
     get-aduser -filter * -SearchBase $ou -Properties * | Select-Object DisplayName, City, CN, Company, Country, countryCode, Department, Description, Division, EmailAddress, EmployeeID, EmployeeNumber, Fax, GivenName, HomeDirectory, HomedirRequired, HomeDrive, HomePage, HomePhone, Initials, Manager, MobilePhone, Name, Office, OfficePhone, Organization, OtherName, POBox, PostalCode, ProfilePath, SamAccountName, ScriptPath, sn, State, StreetAddress, Surname, Title, UserPrincipalName | Export-Csv -Path $exportuserpath -Encoding UTF8 -NoTypeInformation
 
-$groups = (Import-Csv -Path $exportgrouppath).Name
+    $groups = (Import-Csv -Path $exportgrouppath).Name
     
     foreach($group in $groups){
         write-host -ForegroundColor Cyan $group
-        get-adgroupmember -Identity $group | Select-Object SamAccountName
+        $groupmember = get-adgroupmember -Identity $group | Select-Object SamAccountName
+        write-host -ForegroundColor Magenta $groupmember
     }
 
 }
