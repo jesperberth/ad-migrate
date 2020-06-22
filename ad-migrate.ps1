@@ -9,22 +9,43 @@ function Show-Menu
     )
     Clear-Host
     Write-Host "======== $Title ========`n"
-    Write-Host "1: Install Standard Software"
-    Write-Host "2: Install Adobe Creative Suite"
-    Write-Host "3: Install Programming Suite"
-    Write-Host "4: Install Video Suite"
-    Write-Host "5: Run Support Tool"
-    Write-Host "6: Setup Netshare and Print"
-    Write-Host "==============================="
-    Write-Host "99: Run Driver Tool"
-    Write-Host "==============================="
+    Write-Host "1: Set Source OU for Export"
+    Write-Host "2: Export Groups and Users to CSV"
+    Write-Host "3: "
     Write-Host "Q: Press 'Q' to quit."
     Write-Host "==============================="
 }
 
 
 function SetSourceOU{
+    write-host "Type Souce OU for Export`n Example: OU=ExportOU,DC=arrowdemo,DC=local "
+    $ou = Read-Host "Type Source OU"
+    return $ou
 
+}
+
+function ExportSourceToCSV($ou){
+    $exportpath = "C:\ExportOU\"
+    if($null -eq $ou){
+        write-host -ForegroundColor red "You Need to set the Export OU, press any key to continue"
+        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        break
+    }
+
+    write-host "Export all Groups and users to CSV file from: " $ou "`n"
+
+    $exportpathmsg = "Do you want to change Default Export path y/n"
+	do {
+		write-host -foregroundcolor yellow "Default Export path C:\ExportOU\`n"
+		$response = Read-Host -Prompt $exportpathmsg
+		if ($response -eq 'y') {
+            $exportpath = Read-Host -Prompt "Set Export path"
+            write-host -foregroundcolor yellow "New export path: " $exportpath
+		$response = "n"
+ 		}
+	} 	until ($response -eq 'n')
+
+    get-adgroup -filter * -SearchBase $ou -Properties * | Select-Object DistinguishedName, Description, Name, GroupCategory, GroupScope | Export-Csv -Path $exportpath -Encoding UTF8
 
 }
 
@@ -36,10 +57,10 @@ do
      {
          '1' {
              Clear-Host            
-             SetSourceOU
+             $ou = SetSourceOU
          } '2' {
              Clear-Host
-             GetSourceToCSV
+             ExportSourceToCSV $ou
          } '3' {
              Clear-Host
              InstallCode
