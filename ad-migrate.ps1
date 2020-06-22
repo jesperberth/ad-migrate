@@ -26,6 +26,7 @@ function SetSourceOU{
 
 function ExportSourceToCSV($ou){
     $exportpath = "C:\ExportOU\"
+    $exportgroupfile = "group.csv"
     if($null -eq $ou){
         write-host -ForegroundColor red "You Need to set the Export OU, press any key to continue"
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
@@ -45,7 +46,8 @@ function ExportSourceToCSV($ou){
  		}
 	} 	until ($response -eq 'n')
 
-    get-adgroup -filter * -SearchBase $ou -Properties * | Select-Object DistinguishedName, Description, Name, GroupCategory, GroupScope | Export-Csv -Path $exportpath -Encoding UTF8
+    $exportgrouppath = $exportpath + $exportgroupfile
+    get-adgroup -filter * -SearchBase $ou -Properties * | Select-Object DistinguishedName, Description, Name, GroupCategory, GroupScope | Export-Csv -Path $exportgrouppath -Encoding UTF8
 
 }
 
