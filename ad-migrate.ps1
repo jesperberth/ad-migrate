@@ -45,7 +45,7 @@ function ExportSourceToCSV($ou){
 		$response = "n"
  		}
 	} 	until ($response -eq 'n')
-
+    New-Item -ItemType "directory" -Path $exportpath
     $exportgrouppath = $exportpath + $exportgroupfile
     get-adgroup -filter * -SearchBase $ou -Properties * | Select-Object DistinguishedName, Description, Name, GroupCategory, GroupScope | Export-Csv -Path $exportgrouppath -Encoding UTF8
 
