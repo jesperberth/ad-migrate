@@ -138,12 +138,12 @@ function ImportGroupsUsers {
     foreach ($user in $importedusers) {
         $password = GetPasswordRandom $passwordlength
         #write-host $user.DisplayName " " $password
-        # (ConvertTo-SecureString -AsPlainText $password -Force)
+        $securepassword = (ConvertTo-SecureString -AsPlainText $password -Force)
         $userSAM = $user.SamAccountName
         $alias = Get-ADUser -LDAPFilter "(sAMAccountName=$userSAM)"
         if(!$alias){
             #CN countryCode HomedirRequired Manager sn
-            New-aduser -DisplayName $user.DisplayName -City $user.City -Company $user.Company -Country $user.Country -Department $user.Department -Description $user.Description -Division $user.Division -EmailAddress $user.EmailAddress -EmployeeID $user.EmployeeID -EmployeeNumber $user.EmployeeNumber -Fax $user.Fax -GivenName $user.GivenName -HomeDirectory $user.HomeDirectory  -HomeDrive $user.HomeDrive -HomePage $user.HomePage -HomePhone $user.HomePhone -Initials $user.Initials -MobilePhone $user.MobilePhone -Name $user.Name -Office $user.Office -OfficePhone $user.OfficePhone -Organization $user.Organization -OtherName $user.OtherName -POBox $user.POBox -PostalCode $user.PostalCode -ProfilePath $user.ProfilePath -SamAccountName $user.SamAccountName -ScriptPath $user.ScriptPath -State $user.State -StreetAddress $user.StreetAddress -Surname $user.Surname -Title $user.Title -UserPrincipalName $user.UserPrincipalName
+            New-aduser -Path $importuserou -Enabled $true -DisplayName $user.DisplayName -City $user.City -Company $user.Company -Country $user.Country -Department $user.Department -Description $user.Description -Division $user.Division -EmailAddress $user.EmailAddress -EmployeeID $user.EmployeeID -EmployeeNumber $user.EmployeeNumber -Fax $user.Fax -GivenName $user.GivenName -HomeDirectory $user.HomeDirectory  -HomeDrive $user.HomeDrive -HomePage $user.HomePage -HomePhone $user.HomePhone -Initials $user.Initials -MobilePhone $user.MobilePhone -Name $user.Name -Office $user.Office -OfficePhone $user.OfficePhone -Organization $user.Organization -OtherName $user.OtherName -POBox $user.POBox -PostalCode $user.PostalCode -ProfilePath $user.ProfilePath -SamAccountName $user.SamAccountName -ScriptPath $user.ScriptPath -State $user.State -StreetAddress $user.StreetAddress -Surname $user.Surname -Title $user.Title -UserPrincipalName $user.UserPrincipalName -AccountPassword $securepassword
             write-host "Create user: " $user.DisplayName
             $userDisplayName = $user.DisplayName
             $userEmailAddress = $user.EmailAddress
@@ -151,7 +151,7 @@ function ImportGroupsUsers {
             Add-Content -Path $createdusersfile -Value $createduserline
             }
             else{
-                write-host "User exist, skip creation: " $user.SamAccountName
+                write-host -ForegroundColor red "User exist, skip creation: " $user.SamAccountName
             }
 
     }
@@ -163,8 +163,8 @@ function ImportGroupsUsers {
     $importedgroupmembers = Import-Csv -path $importgroupmembersfile
 
     foreach ($groupmember in $importedgroupmembers) {
-        write-host "For group: "$groupmember.Name "Add member: " $groupmember.SamAccountName
-        #New-adgroup -Path $importgroupou -Name $group.Name -GroupScope $group.GroupScope -GroupCategory $group.GroupCategory -Description $group.Description
+        write-host "For group: "$groupmember.Name " - Add member: " $groupmember.SamAccountName
+        Add-ADGroupMember -Identity $groupmember.Name -Members $groupmember.SamAccountName
     }
 
 }
