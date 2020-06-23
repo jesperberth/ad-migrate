@@ -6,6 +6,7 @@ $path = "C:\ExportOU\"
 $groupfile = "group.csv"
 $groupmembersfile = "groupmembers.csv"
 $userfile = "users.csv"
+$usercreatefile = "user_created.csv"
 function Show-Menu
 {
     param (
@@ -16,7 +17,7 @@ function Show-Menu
     Write-Host "1: Set Source/Destination OU for Export and Import"
     Write-Host "2: Export Groups and Users to CSV"
     Write-Host "3: Import Groups and Users"
-    Write-Host "Q: Press 'Q' to quit."
+    Write-Host "`nQ: Press 'Q' to quit."
     Write-Host "==============================="
 }
 
@@ -92,21 +93,88 @@ function ImportGroupsUsers {
  		}
     } 	until ($response -eq 'n')
     $importgroupsfile = $path + "group.csv"
+    $importuserfile = $path + "users.csv"
+    $importgroupmembersfile = $path + "groupmembers.csv"
+    $createdusersfile = $path + $usercreatefile
+    
     $fileNames = Get-ChildItem -Path $path
     foreach ($file in $fileNames) {
         write-host "file: $file`n"
     }
 
+    # Group Import
+    # 
+
     $importgroupou = "OU=Import_Groups," + $ou
-    write-host "Import following AD Groups into $importgroupou`n"
+    write-host "`nImport following AD Groups into $importgroupou`n"
 
     $importedgroups = Import-Csv -path $importgroupsfile
 
     foreach ($group in $importedgroups) {
-        write-host $group.Name
-        New-adgroup -Path $importgroupou -Name $group.Name -GroupScope $group.GroupScope -GroupCategory $group.GroupCategory -Description $group.Description
+        $groupname = $group.Name
+        $groupalias = get-adgroup -Identity $groupname
+        if(!$groupalias){
+            write-host "Create : " $group.Name
+            New-adgroup -Path $importgroupou -Name $group.Name -GroupScope $group.GroupScope -GroupCategory $group.GroupCategory -Description $group.Description
+            }
+            else{
+                write-host -foregroundcolor red "Group exist, skip creation: " $group.Name
+            }
+        
     }
+
+    # user import
+    #
+    $passwordlength = 16
+    $importuserou = "OU=Import_Users," + $ou
+    write-host "`nImport following AD Users into $importuserou`n"
+
+    $importedusers = Import-Csv -path $importuserfile
+
+    $usercreatedheader = """DisplayName"", ""EmailAddress"", ""Password"""
+
+    Add-Content -Path $createdusersfile -Value $usercreatedheader
+
+    foreach ($user in $importedusers) {
+        $password = GetPasswordRandom $passwordlength
+        #write-host $user.DisplayName " " $password
+        # (ConvertTo-SecureString -AsPlainText $password -Force)
+        $userSAM = $user.SamAccountName
+        $alias = Get-ADUser -LDAPFilter "(sAMAccountName=$userSAM)"
+        if(!$alias){
+            #CN countryCode HomedirRequired Manager sn
+            New-aduser -DisplayName $user.DisplayName -City $user.City -Company $user.Company -Country $user.Country -Department $user.Department -Description $user.Description -Division $user.Division -EmailAddress $user.EmailAddress -EmployeeID $user.EmployeeID -EmployeeNumber $user.EmployeeNumber -Fax $user.Fax -GivenName $user.GivenName -HomeDirectory $user.HomeDirectory  -HomeDrive $user.HomeDrive -HomePage $user.HomePage -HomePhone $user.HomePhone -Initials $user.Initials -MobilePhone $user.MobilePhone -Name $user.Name -Office $user.Office -OfficePhone $user.OfficePhone -Organization $user.Organization -OtherName $user.OtherName -POBox $user.POBox -PostalCode $user.PostalCode -ProfilePath $user.ProfilePath -SamAccountName $user.SamAccountName -ScriptPath $user.ScriptPath -State $user.State -StreetAddress $user.StreetAddress -Surname $user.Surname -Title $user.Title -UserPrincipalName $user.UserPrincipalName
+            write-host "Create user: " $user.DisplayName
+            $userDisplayName = $user.DisplayName
+            $userEmailAddress = $user.EmailAddress
+            $createduserline = """$userDisplayName"", ""$userEmailAddress"", ""$password"""
+            Add-Content -Path $createdusersfile -Value $createduserline
+            }
+            else{
+                write-host "User exist, skip creation: " $user.SamAccountName
+            }
+
+    }
+    # user -> group import
+    #
+
+    write-host "`nAssign Groups to users`n"
+
+    $importedgroupmembers = Import-Csv -path $importgroupmembersfile
+
+    foreach ($groupmember in $importedgroupmembers) {
+        write-host "For group: "$groupmember.Name "Add member: " $groupmember.SamAccountName
+        #New-adgroup -Path $importgroupou -Name $group.Name -GroupScope $group.GroupScope -GroupCategory $group.GroupCategory -Description $group.Description
+    }
+
 }
+
+function GetPasswordRandom($count) {
+    $Password = ( -join ((0x30..0x39) + ( 0x41..0x5A) + ( 0x61..0x7A) | Get-Random -Count $count  | ForEach-Object {[char]$_}) )
+
+    return $password
+    
+    }
 
 do
  {
