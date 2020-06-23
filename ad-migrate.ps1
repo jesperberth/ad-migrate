@@ -9,7 +9,7 @@ function Show-Menu
     )
     Clear-Host
     Write-Host "======== $Title ========`n"
-    Write-Host "1: Set Source OU for Export"
+    Write-Host "1: Set Source/Destination OU for Export and Import"
     Write-Host "2: Export Groups and Users to CSV"
     Write-Host "3: "
     Write-Host "Q: Press 'Q' to quit."
@@ -17,9 +17,9 @@ function Show-Menu
 }
 
 
-function SetSourceOU{
-    write-host "Type Souce OU for Export`n Example: OU=ExportOU,DC=arrowdemo,DC=local "
-    $ou = Read-Host "Type Source OU"
+function SetOU{
+    write-host "Type OU for Export or Import`n Example: OU=ExportOU,DC=arrowdemo,DC=local "
+    $ou = Read-Host "Type OU"
     return $ou
 
 }
@@ -27,7 +27,7 @@ function SetSourceOU{
 function ExportSourceToCSV($ou){
     $exportpath = "C:\ExportOU\"
     $exportgroupfile = "group.csv"
-   # $exportgroupmembersfile = "groupmembers.csv"
+    $exportgroupmembersfile = "groupmembers.csv"
     $exportuserfile = "users.csv"
     if($null -eq $ou){
         write-host -ForegroundColor red "You Need to set the Export OU, press any key to continue"
@@ -48,6 +48,7 @@ function ExportSourceToCSV($ou){
     New-Item -ItemType "directory" -Path $exportpath -Force
     $exportgrouppath = $exportpath + $exportgroupfile
     $exportuserpath = $exportpath + $exportuserfile
+    $exportgroupmemberspath = $exportpath + $exportgroupmembersfile
     write-host -foregroundcolor green "#####################################################################`n"
     write-host -foregroundcolor green "Export all Groups and users to CSV file from: " $ou "`n"
     write-host -foregroundcolor green "#####################################################################`n"
@@ -57,10 +58,21 @@ function ExportSourceToCSV($ou){
 
     $groups = (Import-Csv -Path $exportgrouppath).Name
     
+    $groupmemberheader = """Name"", ""SamAccountName"""
+
+    Add-Content -Path $exportgroupmemberspath -Value $groupmemberheader
+
     foreach($group in $groups){
         write-host -ForegroundColor Cyan $group
         $groupmember = get-adgroupmember -Identity $group | Select-Object SamAccountName
-        write-host -ForegroundColor Magenta $groupmember
+        write-host -ForegroundColor Magenta $groupmember.SamAccountName
+
+        
+        foreach($member in $groupmember){
+            $membername = $member.SamAccountName
+            $groupmemberline = """$group"", ""$membername"""
+            Add-Content -Path $exportgroupmemberspath -Value $groupmemberline
+        }
     }
 
 }
@@ -73,7 +85,7 @@ do
      {
          '1' {
              Clear-Host            
-             $ou = SetSourceOU
+             $ou = SetOU
          } '2' {
              Clear-Host
              ExportSourceToCSV $ou
