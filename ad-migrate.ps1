@@ -112,7 +112,8 @@ function ImportGroupsUsers {
 
     foreach ($group in $importedgroups) {
         $groupname = $group.Name
-        $groupalias = get-adgroup -Identity $groupname
+        $groupalias = get-adgroup -filter {Identity -eq $groupname} -ErrorAction SilentlyContinue
+        #$groupalias = get-adgroup -Identity $groupname
         if(!$groupalias){
             write-host "Create : " $group.Name
             New-adgroup -Path $importgroupou -Name $group.Name -GroupScope $group.GroupScope -GroupCategory $group.GroupCategory -Description $group.Description
@@ -140,13 +141,14 @@ function ImportGroupsUsers {
         #write-host $user.DisplayName " " $password
         $securepassword = (ConvertTo-SecureString -AsPlainText $password -Force)
         $userSAM = $user.SamAccountName
-        $alias = Get-ADUser -LDAPFilter "(sAMAccountName=$userSAM)"
+       
+        $alias = Get-ADUser -filter {SamAccountName -eq $userSAM} -ErrorAction SilentlyContinue
         if(!$alias){
             #CN countryCode HomedirRequired Manager sn
             New-aduser -Path $importuserou -Enabled $true -DisplayName $user.DisplayName -City $user.City -Company $user.Company -Country $user.Country -Department $user.Department -Description $user.Description -Division $user.Division -EmailAddress $user.EmailAddress -EmployeeID $user.EmployeeID -EmployeeNumber $user.EmployeeNumber -Fax $user.Fax -GivenName $user.GivenName -HomeDirectory $user.HomeDirectory  -HomeDrive $user.HomeDrive -HomePage $user.HomePage -HomePhone $user.HomePhone -Initials $user.Initials -MobilePhone $user.MobilePhone -Name $user.Name -Office $user.Office -OfficePhone $user.OfficePhone -Organization $user.Organization -OtherName $user.OtherName -POBox $user.POBox -PostalCode $user.PostalCode -ProfilePath $user.ProfilePath -SamAccountName $user.SamAccountName -ScriptPath $user.ScriptPath -State $user.State -StreetAddress $user.StreetAddress -Surname $user.Surname -Title $user.Title -UserPrincipalName $user.UserPrincipalName -AccountPassword $securepassword
             write-host "Create user: " $user.DisplayName
-            $userDisplayName = $user.DisplayName
-            $userEmailAddress = $user.EmailAddress
+           $userDisplayName = $user.DisplayName
+           $userEmailAddress = $user.EmailAddress
             $createduserline = """$userDisplayName"", ""$userEmailAddress"", ""$password"""
             Add-Content -Path $createdusersfile -Value $createduserline
             }
@@ -170,8 +172,10 @@ function ImportGroupsUsers {
 }
 
 function GetPasswordRandom($count) {
-    $Password = ( -join ((0x30..0x39) + ( 0x41..0x5A) + ( 0x61..0x7A) | Get-Random -Count $count  | ForEach-Object {[char]$_}) )
-
+    #$Password = ( -join ((0x30..0x39) + ( 0x41..0x5A) + ( 0x61..0x7A) | Get-Random -Count $count  | ForEach-Object {[char]$_}) )
+    $numb = ( -join ((0x30..0x39)  | Get-Random -Count 4  | ForEach-Object {[char]$_}) )
+    $pre = "EtiKeTTeLys"
+    $password = $pre + $numb
     return $password
     
     }
