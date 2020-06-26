@@ -1,11 +1,12 @@
 # Menu driven AD Migration Tool
-# Exports Groups, Users and Mappings between Groups and Users
+# Exports Groups Contacts, Users and Mappings between Groups and Users
 # Author: Jesper Berth, Arrow ECS, jesper.berth@arrow.com - 22/06-2020
 # Version 0.0.1
 $path = "C:\ExportOU\"
 $groupfile = "group.csv"
 $groupmembersfile = "groupmembers.csv"
 $userfile = "users.csv"
+$contactfile = "contact.csv"
 $usercreatefile = "user_created.csv"
 function Show-Menu
 {
@@ -15,8 +16,8 @@ function Show-Menu
     Clear-Host
     Write-Host "======== $Title ========`n"
     Write-Host "1: Set Source/Destination OU for Export and Import"
-    Write-Host "2: Export Groups and Users to CSV"
-    Write-Host "3: Import Groups and Users"
+    Write-Host "2: Export Groups, Contacts and Users to CSV"
+    Write-Host "3: Import Groups, Contacts and Users"
     Write-Host "`nQ: Press 'Q' to quit."
     Write-Host "==============================="
 }
@@ -49,35 +50,38 @@ function ExportSourceToCSV($ou){
     New-Item -ItemType "directory" -Path $path -Force
     $exportgrouppath = $path + $groupfile
     $exportuserpath = $path + $userfile
+    $exportcontactpath = $path + $contactfile
     $exportgroupmemberspath = $path + $groupmembersfile
     write-host -foregroundcolor green "#####################################################################`n"
     write-host -foregroundcolor green "# Export all Groups and users to CSV file from: " $ou "`n"
     write-host -foregroundcolor green "#####################################################################`n"
-    get-adgroup -filter * -SearchBase $ou -Properties * | Select-Object DistinguishedName, Description, Name, GroupCategory, GroupScope | Export-Csv -Path $exportgrouppath -Encoding UTF8 -NoTypeInformation
+    get-adgroup -filter * -SearchBase $ou -Properties * | Select-Object DistinguishedName, Description, Name, GroupCategory, GroupScope, Mail | Export-Csv -Path $exportgrouppath -Encoding UTF8 -NoTypeInformation
     # Get user details
     get-aduser -filter * -SearchBase $ou -Properties * | Select-Object DisplayName, City, CN, Company, Country, countryCode, Department, Description, Division, EmailAddress, EmployeeID, EmployeeNumber, Fax, GivenName, HomeDirectory, HomedirRequired, HomeDrive, HomePage, HomePhone, Initials, Manager, MobilePhone, Name, Office, OfficePhone, Organization, OtherName, POBox, PostalCode, ProfilePath, SamAccountName, ScriptPath, sn, State, StreetAddress, Surname, Title, UserPrincipalName | Export-Csv -Path $exportuserpath -Encoding UTF8 -NoTypeInformation
+
+    Get-ADObject -Filter 'objectClass -eq "contact"' -Properties * | Select-Object Name, DisplayName, c, co, company, countryCode, department, Description, facsimileTelephoneNumber, givenName, homePhone, initials, ipPhone, l, mail, mobile, pager, physicalDeliveryOfficeName, postalCode, sn, st, streetAddress, telephoneNumber, title, wWWHomePage | Export-Csv -Path $exportcontactpath -Encoding UTF8 -NoTypeInformation    
 
     $groups = (Import-Csv -Path $exportgrouppath).Name
     
     $groupmemberheader = """Name"", ""SamAccountName"""
 
-    Add-Content -Path $exportgroupmemberspath -Value $groupmemberheader
+    Add-Content -Encoding utf8 -Path $exportgroupmemberspath -Value $groupmemberheader
 
     foreach($group in $groups){
         write-host -ForegroundColor Cyan $group
-        $groupmember = get-adgroupmember -Identity $group | Select-Object SamAccountName
+        $groupmember = get-adgroupmember -Identity $group | Where-Object {$_.objectClass -ne  "computer"} | Select-Object SamAccountName
         write-host -ForegroundColor Magenta $groupmember.SamAccountName
 
         
         foreach($member in $groupmember){
             $membername = $member.SamAccountName
             $groupmemberline = """$group"", ""$membername"""
-            Add-Content -Path $exportgroupmemberspath -Value $groupmemberline
+            Add-Content -Encoding utf8 -Path $exportgroupmemberspath -Value $groupmemberline
         }
     }
-    write-host -foregroundcolor green "#####################################`n"
-    write-host -foregroundcolor green "# Export of Users and Groups Done ! #`n"
-    write-host -foregroundcolor green "#####################################`n"
+    write-host -foregroundcolor green "###############################################`n"
+    write-host -foregroundcolor green "# Export of Users, Contacts and Groups Done ! #`n"
+    write-host -foregroundcolor green "###############################################`n"
 }
 
 function ImportGroupsUsers {
@@ -95,6 +99,7 @@ function ImportGroupsUsers {
     $importgroupsfile = $path + "group.csv"
     $importuserfile = $path + "users.csv"
     $importgroupmembersfile = $path + "groupmembers.csv"
+    $importcontactsfile = $path + "contact.csv"
     $createdusersfile = $path + $usercreatefile
     
     $fileNames = Get-ChildItem -Path $path
@@ -112,11 +117,14 @@ function ImportGroupsUsers {
 
     foreach ($group in $importedgroups) {
         $groupname = $group.Name
-        $groupalias = get-adgroup -filter {Identity -eq $groupname} -ErrorAction SilentlyContinue
-        #$groupalias = get-adgroup -Identity $groupname
+        $groupalias = get-adgroup -filter {Name -eq $groupname} -ErrorAction SilentlyContinue
         if(!$groupalias){
             write-host "Create : " $group.Name
             New-adgroup -Path $importgroupou -Name $group.Name -GroupScope $group.GroupScope -GroupCategory $group.GroupCategory -Description $group.Description
+                if($group.Mail){
+                    write-host -foregroundcolor yellow "add mailaddress"
+                    Set-ADGroup $group.Name -Replace @{mail=$group.Mail}
+                }
             }
             else{
                 write-host -foregroundcolor red "Group exist, skip creation: " $group.Name
@@ -157,6 +165,39 @@ function ImportGroupsUsers {
             }
 
     }
+
+    # Contact Import
+    # 
+
+    $importcontactou = "OU=Import_Contacts," + $ou
+    write-host "`nImport following AD Contacts into $importcontactou`n"
+
+    $importedcontacts = Import-Csv -path $importcontactsfile
+
+    foreach ($contact in $importedcontacts) {
+        $contactname = $contact.Name
+        $contactalias = Get-ADObject -Filter {objectClass -eq "contact" -and Name -eq $contactname} -ErrorAction SilentlyContinue
+        if(!$contactalias){
+            write-host "Create : " $contact.Name
+            New-ADObject -type contact -path $importcontactou -Name $contact.Name
+            $contactArray = @('DisplayName', 'c', 'co', 'company', 'countryCode', 'department', 'Description', 'facsimileTelephoneNumber', 'givenName', 'homePhone', 'initials', 'ipPhone', 'l', 'mail', 'mobile', 'pager', 'physicalDeliveryOfficeName', 'postalCode', 'sn', 'st', 'streetAddress', 'telephoneNumber', 'title', 'wWWHomePage')
+            foreach($ca in $contactArray){
+                if($contact.$ca){
+                    $addObject = @{$ca=$contact.$ca}
+                    write-host $ca ": " $contact.$ca
+                    Get-ADObject -Filter {objectClass -eq "contact" -and Name -eq $contactname} | set-adobject -Replace $addObject
+                }
+            }
+            
+            #New-ADObject -type contact -path $importcontactou -Name $contact.Name
+            #Get-ADObject -Filter {objectClass -eq "contact" -and Name -eq $contactname} | set-adobject -Replace @{givenName=$contact.givenName;sn=$contact.sn;displayName=$contact.displayName;TelephoneNumber=$contact.telephoneNumber;department=$contact.department;physicalDeliveryOfficeName=$contact.physicalDeliveryOfficeName;c=$contact.c;co=$contact.co;company=$contact.company;countryCode=$contact.countryCode;Description=$contact.Description;facsimileTelephoneNumber=$contact.facsimileTelephoneNumber;homePhone=$contact.homePhone;initials=$contact.initials;ipPhone=$contact.ipPhone;l=$contact.l;mail=$contact.mail;mobile=$contact.mobile;pager=$contact.pager;postalCode=$contact.postalCode;st=$contact.st;streetAddress=$contact.streetAddress;title=$contact.title;wWWHomePage=$contact.wWWHomePage;}
+            }
+            else{
+                write-host -foregroundcolor red "Contact exist, skip creation: " $contact.Name
+            }
+        
+    }
+
     # user -> group import
     #
 
