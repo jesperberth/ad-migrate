@@ -55,11 +55,11 @@ function ExportSourceToCSV($ou){
     write-host -foregroundcolor green "#####################################################################`n"
     write-host -foregroundcolor green "# Export all Groups and users to CSV file from: " $ou "`n"
     write-host -foregroundcolor green "#####################################################################`n"
-    get-adgroup -filter * -SearchBase $ou -Properties * | Select-Object DistinguishedName, Description, Name, GroupCategory, GroupScope, Mail | Export-Csv -Path $exportgrouppath -Encoding UTF8 -NoTypeInformation
+    get-adgroup -filter * -SearchBase $ou -Properties * | Select-Object DistinguishedName, Description, Name, GroupCategory, GroupScope, Mail, objectGUID | Export-Csv -Path $exportgrouppath -Encoding UTF8 -NoTypeInformation
     # Get user details
-    get-aduser -filter * -SearchBase $ou -Properties * | Select-Object DisplayName, City, CN, Company, Country, countryCode, Department, Description, Division, EmailAddress, EmployeeID, EmployeeNumber, Fax, GivenName, HomeDirectory, HomedirRequired, HomeDrive, HomePage, HomePhone, Initials, Manager, MobilePhone, Name, Office, OfficePhone, Organization, OtherName, POBox, PostalCode, ProfilePath, SamAccountName, ScriptPath, sn, State, StreetAddress, Surname, Title, UserPrincipalName | Export-Csv -Path $exportuserpath -Encoding UTF8 -NoTypeInformation
+    get-aduser -filter * -SearchBase $ou -Properties * | Select-Object DisplayName, City, CN, Company, Country, countryCode, Department, Description, Division, EmailAddress, EmployeeID, EmployeeNumber, Fax, GivenName, HomeDirectory, HomedirRequired, HomeDrive, HomePage, HomePhone, Initials, Manager, MobilePhone, Name, Office, OfficePhone, Organization, OtherName, POBox, PostalCode, ProfilePath, SamAccountName, ScriptPath, sn, State, StreetAddress, Surname, Title, UserPrincipalName, objectGUID | Export-Csv -Path $exportuserpath -Encoding UTF8 -NoTypeInformation
 
-    Get-ADObject -Filter 'objectClass -eq "contact"' -Properties * | Select-Object Name, DisplayName, c, co, company, countryCode, department, Description, facsimileTelephoneNumber, givenName, homePhone, initials, ipPhone, l, mail, mobile, pager, physicalDeliveryOfficeName, postalCode, sn, st, streetAddress, telephoneNumber, title, wWWHomePage | Export-Csv -Path $exportcontactpath -Encoding UTF8 -NoTypeInformation    
+    Get-ADObject -Filter 'objectClass -eq "contact"' -Properties * | Select-Object Name, DisplayName, c, co, company, countryCode, department, Description, facsimileTelephoneNumber, givenName, homePhone, initials, ipPhone, l, mail, mobile, pager, physicalDeliveryOfficeName, postalCode, sn, st, streetAddress, telephoneNumber, title, wWWHomePage, objectGUID | Export-Csv -Path $exportcontactpath -Encoding UTF8 -NoTypeInformation    
 
     $groups = (Import-Csv -Path $exportgrouppath).Name
     
@@ -125,6 +125,10 @@ function ImportGroupsUsers {
                     write-host -foregroundcolor yellow "add mailaddress"
                     Set-ADGroup $group.Name -Replace @{mail=$group.Mail}
                 }
+                write-host "Set mS-DS-ConsistencyGuid"
+                $objectGuid = [GUID] $group.objectGUID
+                write-host $objectGuid
+                set-adgroup -identity $group.Name -Replace @{'mS-DS-ConsistencyGuid'=$objectGuid}
             }
             else{
                 write-host -foregroundcolor red "Group exist, skip creation: " $group.Name
@@ -142,7 +146,7 @@ function ImportGroupsUsers {
 
     $usercreatedheader = """DisplayName"", ""EmailAddress"", ""Password"""
 
-    Add-Content -Path $createdusersfile -Value $usercreatedheader
+    Add-Content  -Encoding utf8 -Path $createdusersfile -Value $usercreatedheader
 
     foreach ($user in $importedusers) {
         $password = GetPasswordRandom $passwordlength
@@ -158,7 +162,11 @@ function ImportGroupsUsers {
            $userDisplayName = $user.DisplayName
            $userEmailAddress = $user.EmailAddress
             $createduserline = """$userDisplayName"", ""$userEmailAddress"", ""$password"""
-            Add-Content -Path $createdusersfile -Value $createduserline
+            Add-Content  -Encoding utf8 -Path $createdusersfile -Value $createduserline
+            write-host "Set mS-DS-ConsistencyGuid"
+            $objectGuid = [GUID] $user.objectGUID
+            write-host $objectGuid
+            set-aduser -identity $user.SamAccountName -Replace @{'mS-DS-ConsistencyGuid'=$objectGuid}
             }
             else{
                 write-host -ForegroundColor red "User exist, skip creation: " $user.SamAccountName
@@ -188,9 +196,11 @@ function ImportGroupsUsers {
                     Get-ADObject -Filter {objectClass -eq "contact" -and Name -eq $contactname} | set-adobject -Replace $addObject
                 }
             }
+            write-host "Set mS-DS-ConsistencyGuid"
+            $objectGuid = [GUID] $contact.objectGUID
+            write-host $objectGuid
+            Get-ADObject -Filter {objectClass -eq "contact" -and Name -eq $contactname} | set-adobject -Replace @{'mS-DS-ConsistencyGuid'=$objectGuid}                      
             
-            #New-ADObject -type contact -path $importcontactou -Name $contact.Name
-            #Get-ADObject -Filter {objectClass -eq "contact" -and Name -eq $contactname} | set-adobject -Replace @{givenName=$contact.givenName;sn=$contact.sn;displayName=$contact.displayName;TelephoneNumber=$contact.telephoneNumber;department=$contact.department;physicalDeliveryOfficeName=$contact.physicalDeliveryOfficeName;c=$contact.c;co=$contact.co;company=$contact.company;countryCode=$contact.countryCode;Description=$contact.Description;facsimileTelephoneNumber=$contact.facsimileTelephoneNumber;homePhone=$contact.homePhone;initials=$contact.initials;ipPhone=$contact.ipPhone;l=$contact.l;mail=$contact.mail;mobile=$contact.mobile;pager=$contact.pager;postalCode=$contact.postalCode;st=$contact.st;streetAddress=$contact.streetAddress;title=$contact.title;wWWHomePage=$contact.wWWHomePage;}
             }
             else{
                 write-host -foregroundcolor red "Contact exist, skip creation: " $contact.Name
