@@ -1,7 +1,7 @@
 # Menu driven AD Migration Tool
 # Exports Groups Contacts, Users and Mappings between Groups and Users
 # Author: Jesper Berth, Arrow ECS, jesper.berth@arrow.com - 22/06-2020
-# Version 0.0.1
+# Version 0.7.0
 $path = "C:\ExportOU\"
 $groupfile = "group.csv"
 $groupmembersfile = "groupmembers.csv"
