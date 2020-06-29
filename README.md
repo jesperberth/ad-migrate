@@ -41,6 +41,8 @@ Set-MsolDirSyncEnabled -EnableDirSync $false
 
 (Get-MSOLCompanyInformation).DirectorySynchronizationEnabled
 
+(Get-MSOLCompanyInformation).DirectorySynchronizationStatus
+
 ```
 
 Wait for Disabled
