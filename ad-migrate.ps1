@@ -223,10 +223,10 @@ function ImportGroupsUsers {
 }
 
 function GetPasswordRandom($count) {
-    #$Password = ( -join ((0x30..0x39) + ( 0x41..0x5A) + ( 0x61..0x7A) | Get-Random -Count $count  | ForEach-Object {[char]$_}) )
-    $numb = ( -join ((0x30..0x39)  | Get-Random -Count $count  | ForEach-Object {[char]$_}) )
+    $Password = ( -join ((0x30..0x39) + ( 0x41..0x5A) + ( 0x61..0x7A) | Get-Random -Count $count  | ForEach-Object {[char]$_}) )
+    #$numb = ( -join ((0x30..0x39)  | Get-Random -Count $count  | ForEach-Object {[char]$_}) )
     #$pre = "SomeThingSecure"
-    $password = $numb
+    #$password = $pre + $numb
     return $password
     
     }
